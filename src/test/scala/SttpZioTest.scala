@@ -47,3 +47,27 @@ object SttpZioTest extends DefaultRunnableSpec {
       )
     )
 }
+
+
+
+import zio._
+import zio.duration._
+import zio.test.Assertion._
+import zio.test.environment._
+
+object ExampleSpec extends DefaultRunnableSpec {
+
+  val schedule = (Schedule.spaced(2.second) >>> Schedule.recurWhile[Long](_ < 5)) *>
+    Schedule.collectAll[Int].tapInput[Console, Int](response => putStrLn(response.toString).exitCode)
+
+
+  def spec =
+    testM("test") {
+      for {
+        ref    <- Ref.make(0)
+        fiber  <- ref.getAndUpdate(_ + 1).repeat(schedule).fork
+        _      <- TestClock.adjust(20.seconds)
+        values <- fiber.join
+      } yield assert(values)(equalTo(Chunk.fromIterable(0 to 5)))
+    }
+}
